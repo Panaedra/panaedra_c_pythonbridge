@@ -14,13 +14,15 @@
 //static void *oPyObject = 0;
 static void** pModules = 0;
 static int iMaxModules = 0;
+static PyObject* oMainModule = 0;
+static PyObject* oGlobalDict = 0; 
 
 PyMODINIT_FUNC
 	QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP)
 {
 
 	int i;
-	void *oPyObject = 0;
+	//void *oPyObject = 0;
 
 	iMaxModules = iMaxModulesIP;
 
@@ -41,67 +43,56 @@ PyMODINIT_FUNC
 		// This function should be called before Py_Initialize() is called for the first time, if at all
 		Py_SetProgramName(cPyExePathIP);
 		Py_Initialize();
-		oPyObject = (PyCodeObject*)Py_CompileString("oHoi = 'Boe'\nprint 'Hallo dit is de eerste'\n", "dummydummy1", Py_file_input);
-		fprintf(stdout, "Initialize py object pointer nr 1: \"%p\"\n", oPyObject);
-		pModules[0] = oPyObject;
-		oPyObject = (PyCodeObject*)Py_CompileString("oHoi = 'Ba'\nprint 'Hallo dit is de tweede'", "dummydummy2", Py_file_input);
-		fprintf(stdout, "Initialize py object pointer nr 2: \"%p\"\n", oPyObject);
-		pModules[1] = oPyObject;
+
+		//oPyObject = (PyCodeObject*)Py_CompileString("oHoi = 'Boe'\nprint 'Hallo dit is de eerste'\n", "dummydummy1", Py_file_input);
+		//fprintf(stdout, "Initialize py object pointer nr 1: \"%p\"\n", oPyObject);
+		//pModules[0] = oPyObject;
+		//oPyObject = (PyCodeObject*)Py_CompileString("oHoi = 'Ba'\nprint 'Hallo dit is de tweede'", "dummydummy2", Py_file_input);
+		//fprintf(stdout, "Initialize py object pointer nr 2: \"%p\"\n", oPyObject);
+		//pModules[1] = oPyObject;
 	}
 }
 
 PyMODINIT_FUNC
 	QxPy_SetCompiledPyCode(int iPyObjectIP, char *cPyCodeIP)
 {  
-	fprintf(stdout, "Set py object pointer: \"%p\"\n", pModules[0]);
-	//pModules[iPyObjectIP] = ...;
+	void *oPyObject = 0;
+
+	oPyObject = (PyCodeObject*)Py_CompileString(cPyCodeIP, "dummydummy1", Py_file_input);
+	fprintf(stdout, "Initialize py object pointer: \"%p\" \"%s\"\n", oPyObject, cPyCodeIP);
+	pModules[iPyObjectIP] = oPyObject;
+
+	//fprintf(stdout, "Set py object pointer: \"%p\"\n", pModules[0]);
 }
 
 PyMODINIT_FUNC
 	QxPy_RunCompiledPyCode(int iModuleIP)
 {  
-	PyObject* main_module = 0;
-	PyObject* global_dict = 0; 
 	PyObject* local_dict = 0;
 	PyObject* pRet = 0;
 
 	PyObject* pStrong = 0;
 
-	int i ;
-
-	fprintf(stdout, "QxPy_RunCompiledPyCode: \"%i\"\n", iModuleIP);
+	fprintf(stdout, "QxPy_RunCompiledPyCode\"%i\"\n", iModuleIP);
 	fprintf(stdout, "Run py object pointer: \"%p\" \"%p\"\n", pModules[0], pModules[1]);
 
-	main_module = PyImport_AddModule("__main__");
-	fprintf(stdout, "Run py object main module: \"%p\"\n", main_module);
-	global_dict = PyModule_GetDict(main_module);
+	if (oMainModule == 0) oMainModule = PyImport_AddModule("__main__");
+	if (oGlobalDict == 0) oGlobalDict = PyModule_GetDict(oMainModule);
+
+	fprintf(stdout, "Run py object main module: \"%p\"\n", oMainModule);
 	local_dict = PyDict_New();
 
-
 	//fprintf(stdout, "Run py object pointer: \"%p\"-\"%p\"\n", oPyObject, (void*)(*((void)oPyObjectIP)));
-	for (i = 0; i < 1; i++)
+
+	pRet = PyEval_EvalCode((PyCodeObject*)pModules[iModuleIP], oGlobalDict, local_dict);
+	fprintf(stdout, "pRet object pointer: \"%p\"\n", ((void *)pRet));
+	if (pRet != 0)
 	{
-		pRet = PyEval_EvalCode((PyCodeObject*)pModules[0], global_dict, local_dict);
-		fprintf(stdout, "pRet object pointer: \"%p\"\n", ((void *)pRet));
-		if (pRet != 0)
-		{
-			pStrong = PyObject_Str((PyObject*)pRet);
-			PyObject_Print(pStrong, stdout, 0); // Should be 'None'
-			fprintf(stdout, "\n");
-			Py_DECREF(pRet);
-		}
-		pRet = PyEval_EvalCode((PyCodeObject*)pModules[1], global_dict, local_dict);
-		fprintf(stdout, "pRet object pointer: \"%p\"\n", ((void *)pRet));
-		if (pRet != 0)
-		{
-			pStrong = PyObject_Str((PyObject*)pRet);
-			PyObject_Print(pStrong, stdout, 0); // Should be 'None'
-			fprintf(stdout, "\n");
-			Py_DECREF(pRet);
-		}
+		pStrong = PyObject_Str((PyObject*)pRet);
+		PyObject_Print(pStrong, stdout, 0); // Should be 'None'
+		fprintf(stdout, "\n");
+		Py_DECREF(pRet);
 	}
-	// Note: Py_DECREF(main_module) gave a Mem Violation in OE10.2B batch utf-8. We don't create it ourselves, so it's probably not meant to be decreased anyway. Plus we only need one instance of the main module.
-	Py_DECREF(global_dict);
 	Py_DECREF(local_dict);
 }
 
@@ -136,6 +127,13 @@ PyMODINIT_FUNC
 
 	free(pModules);
 	pModules = 0;
+
+	if (oGlobalDict != 0)
+	{
+		Py_DECREF(oGlobalDict);
+	}
+
+	// Note: Py_DECREF(oMainModule) gave a Mem Violation in OE10.2B batch session. We don't create it ourselves, so it's probably not meant to be decreased anyway. Plus we only need one instance of the main module.
 
 	Py_Finalize();
 

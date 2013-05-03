@@ -12,6 +12,7 @@
 #endif 
 
 #define MAXERRORLEN 10000 // cErrorOP parameters should be preallocated with this size
+#define QXPYDEBUG 0
 
 //static void *oPyObject = 0;
 static void** pModules = 0;
@@ -28,7 +29,9 @@ PyMODINIT_FUNC
 	iMaxModules = iMaxModulesIP;
 	cErrorOP[0] = 0;
 
+    #if QXPYDEBUG
 	fprintf(stdout, "Initialize iMaxModulesIP: \"%i\"\n", iMaxModulesIP);
+    #endif
 
 	pModules = (void**)malloc(sizeof(void*) * iMaxModulesIP);
 	if (pModules == 0)
@@ -50,7 +53,59 @@ PyMODINIT_FUNC
 		Py_Initialize();
 
 	}
-}
+
+} // QxPy_InitializeInterpreter
+
+void QxPyH_TransferPyErrorToString(char *cErrorOP)
+{
+	// Transfer the python error to a string (concat), and reset the python error status
+
+	char *cErr;
+	PyObject *oPyObject = 0;
+	PyObject *oPyType, *oPyValue, *oPyTraceback;
+
+	PyErr_Fetch(&oPyType, &oPyValue, &oPyTraceback); // Note: This fetch resets the error flag
+
+	// Store results in cErrorOP
+	if (oPyType != 0)
+	{
+		oPyObject = PyObject_Str(oPyType);
+		if (oPyObject != 0)
+		{
+			cErr = PyString_AsString(oPyObject);
+			strcat(cErr,"\t");
+			strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+			Py_DECREF(oPyObject);
+		}
+		Py_DECREF(oPyType);
+	}
+
+	if (oPyValue != 0)
+	{
+		oPyObject = PyObject_Str(oPyValue);
+		if (oPyObject != 0)
+		{
+			cErr = PyString_AsString(oPyObject);
+			strcat(cErr,"\t");
+			strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+			Py_DECREF(oPyObject);
+		}
+		Py_DECREF(oPyValue);
+	}
+
+	if (oPyTraceback != 0)
+	{
+		oPyObject = PyObject_Str(oPyTraceback);
+		if (oPyObject != 0)
+		{
+			cErr = PyString_AsString(oPyObject);
+			strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+			Py_DECREF(oPyObject);
+		}
+		Py_DECREF(oPyTraceback);
+	}
+
+} // QxPyH_TransferPyErrorToString
 
 PyMODINIT_FUNC
 	QxPy_SetCompiledPyCode(int iPyObjectIP, char *cPyIdIP, char *cPyCodeIP, char *cErrorOP)
@@ -65,38 +120,24 @@ PyMODINIT_FUNC
 	oPyObject = (PyCodeObject*)Py_CompileString(cPyCodeIP, cPyIdIP, Py_file_input);
 	if (oPyObject == 0)
 	{
-		char* cErr = "ERROR: Compile error, invalid python code.\t";
+		char* cErr = "Compile error, invalid python code.\t";
 		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
 		cErr = cPyIdIP;
 		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
 		cErr = ":\t";
 		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
-		{
-			PyObject *ptype, *pvalue, *ptraceback;
-			
-			PyErr_Fetch(&ptype, &pvalue, &ptraceback); // Note: This fetch resets the error flag
-            
-			// Store results in cErrorOP
-			cErr = PyString_AsString(PyObject_Str(ptype));
-			strcat(cErr,"\t");
-    		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
-
-			cErr = PyString_AsString(PyObject_Str(pvalue));
-			strcat(cErr,"\t");
-    		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
-
-			cErr = PyString_AsString(PyObject_Str(ptraceback));
-    		strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
-			
-		}
+		QxPyH_TransferPyErrorToString(cErrorOP);
 	}
 	else
 	{
+		#if QXPYDEBUG
 		fprintf(stdout, "Initialize py object pointer: \"%p\" \"%s\"\n", oPyObject, cPyCodeIP);
+		#endif
 		pModules[iPyObjectIP] = oPyObject;
 	}
 
-}
+} // QxPy_SetCompiledPyCode
+
 
 PyMODINIT_FUNC
 	QxPy_RunCompiledPyCode(int iModuleIP, char *cErrorOP)
@@ -132,18 +173,24 @@ PyMODINIT_FUNC
 		}
 		Py_DECREF(local_dict);
 	}
-}
+
+} // QxPy_RunCompiledPyCode
+
 
 PyMODINIT_FUNC
 	QxPy_FreeCompiledPyCode(int iPyObjectIP)
 {  
+	#if QXPYDEBUG
 	fprintf(stdout, "Del py object number: \"%i\"\n", iPyObjectIP);
+	#endif
+
 	if (iPyObjectIP <= iMaxModules && pModules[iPyObjectIP] != 0) 
 	{
 		Py_DECREF(pModules[iPyObjectIP]);
 		pModules[iPyObjectIP] = 0;
 	}
-}
+
+} // QxPy_FreeCompiledPyCode
 
 
 PyMODINIT_FUNC 
@@ -153,7 +200,10 @@ PyMODINIT_FUNC
 	int i = 0;
 
 	// Free malloc of pModules void pointer array
+	#if QXPYDEBUG
 	fprintf(stdout, "Freeing pModules: \"%p\" \"%p\"\n", pModules, pModules[0]);
+	#endif
+
 	for (i = 0 ; i < iMaxModules ; i++)
 	{
 		if (pModules[i] != 0) 
@@ -175,6 +225,8 @@ PyMODINIT_FUNC
 
 	Py_Finalize();
 
-}
+} // QxPy_FinalizeInterpreter
+
+
 
 

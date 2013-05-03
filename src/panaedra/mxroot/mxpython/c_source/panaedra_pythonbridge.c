@@ -58,6 +58,9 @@ PyMODINIT_FUNC
 	void *oPyObject = 0;
 
 	cErrorOP[0] = 0;
+	cErrorOP[1] = 0;
+	cErrorOP[2] = 0;
+	cErrorOP[3] = 0;
 
 	oPyObject = (PyCodeObject*)Py_CompileString(cPyCodeIP, cPyIdIP, Py_file_input);
 	if (oPyObject == 0)
@@ -96,8 +99,11 @@ PyMODINIT_FUNC
 }
 
 PyMODINIT_FUNC
-	QxPy_RunCompiledPyCode(int iModuleIP)
+	QxPy_RunCompiledPyCode(int iModuleIP, char *cErrorOP)
 {  
+	cErrorOP[0] = 0;
+	cErrorOP[1] = 0;
+
 	if (pModules[iModuleIP] != 0)
 	{
 		PyObject* local_dict = 0;
@@ -105,24 +111,23 @@ PyMODINIT_FUNC
 
 		PyObject* pStrong = 0;
 
-		fprintf(stdout, "QxPy_RunCompiledPyCode\"%i\"\n", iModuleIP);
-		fprintf(stdout, "Run py object pointer: \"%p\" \"%p\"\n", pModules[0], pModules[1]);
+		//fprintf(stdout, "QxPy_RunCompiledPyCode\"%i\"\n", iModuleIP);
+		//fprintf(stdout, "Run py object pointer: \"%p\" \"%p\"\n", pModules[0], pModules[1]);
 
 		if (oMainModule == 0) oMainModule = PyImport_AddModule("__main__");
 		if (oGlobalDict == 0) oGlobalDict = PyModule_GetDict(oMainModule);
 
-		fprintf(stdout, "Run py object main module: \"%p\"\n", oMainModule);
+		//fprintf(stdout, "Run py object main module: \"%p\"\n", oMainModule);
 		local_dict = PyDict_New();
 
-		//fprintf(stdout, "Run py object pointer: \"%p\"-\"%p\"\n", oPyObject, (void*)(*((void)oPyObjectIP)));
-
 		pRet = PyEval_EvalCode((PyCodeObject*)pModules[iModuleIP], oGlobalDict, local_dict);
-		fprintf(stdout, "pRet object pointer: \"%p\"\n", ((void *)pRet));
+		//fprintf(stdout, "pRet object pointer: \"%p\"\n", ((void *)pRet));
 		if (pRet != 0)
 		{
 			pStrong = PyObject_Str((PyObject*)pRet);
-			PyObject_Print(pStrong, stdout, 0); // Should be 'None'
-			fprintf(stdout, "\n");
+			//PyObject_Print(pStrong, stdout, 0); // Should be 'None'
+			//fprintf(stdout, "\n");
+			if (pStrong != 0) Py_DECREF(pStrong);
 			Py_DECREF(pRet);
 		}
 		Py_DECREF(local_dict);

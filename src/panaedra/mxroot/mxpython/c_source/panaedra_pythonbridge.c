@@ -69,7 +69,7 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
 	// Store results in cErrorOP
 	if (oPyType != 0)
 	{
-		oPyObject = PyObject_Str(oPyType);
+		oPyObject = PyObject_Str(oPyType); // Note: PyObject_Repr can also be used, mimic 'repr', for easier copy/paste in python
 		if (oPyObject != 0)
 		{
 			cErr = PyString_AsString(oPyObject);

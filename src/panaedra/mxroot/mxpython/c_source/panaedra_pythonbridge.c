@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <setjmp.h>
 
 #ifndef __bool_true_false_are_defined
 #ifdef _Bool
@@ -14,11 +15,18 @@
 #define MAXERRORLEN 10000 // cErrorOP parameters should be preallocated with this size
 #define QXPYDEBUG 0
 
+// See: http://www.di.unipi.it/~nids/docs/longjump_try_trow_catch.html
+#define TRY do{ jmp_buf ex_buf__; if( !setjmp(ex_buf__) ){
+#define CATCH } else {
+#define ETRY } }while(0)
+#define THROW longjmp(ex_buf__, 1)
+
 //static void *oPyObject = 0;
 static void** pModules = 0;
 static int iMaxModules = 0;
 static PyObject* oMainModule = 0;
 static PyObject* oGlobalDict = 0; 
+
 
 PyMODINIT_FUNC
 	QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP)
@@ -29,9 +37,9 @@ PyMODINIT_FUNC
 	iMaxModules = iMaxModulesIP;
 	cErrorOP[0] = 0;
 
-    #if QXPYDEBUG
+#if QXPYDEBUG
 	fprintf(stdout, "Initialize iMaxModulesIP: \"%i\"\n", iMaxModulesIP);
-    #endif
+#endif
 
 	pModules = (void**)malloc(sizeof(void*) * iMaxModulesIP);
 	if (pModules == 0)
@@ -41,16 +49,30 @@ PyMODINIT_FUNC
 	}
 	else
 	{
-		for (i = 0 ; i < iMaxModulesIP ; i++)
+		TRY
 		{
-			pModules[i] = 0;
+
+			for (i = 0 ; i < iMaxModulesIP ; i++)
+			{
+				pModules[i] = 0;
+			}
+
+			// This function should be called before Py_Initialize() is called for the first time, if at all
+			Py_SetProgramName(cPyExePathIP);
+
+			// Initialize the Python interpreter
+			// Note: exceptions can not be caught here. 
+			// A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
+			// Sadly, there is no way to un-abort that.
+			Py_Initialize();
+
 		}
-
-		// This function should be called before Py_Initialize() is called for the first time, if at all
-		Py_SetProgramName(cPyExePathIP);
-
-		// Initialize the Python interpreter
-		Py_Initialize();
+		CATCH
+		{
+			char* cErr = "ERROR: Python initialize interpreter failed.\n";
+			strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1)) ;
+		}
+		ETRY;
 
 	}
 

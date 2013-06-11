@@ -32,7 +32,7 @@ PyMODINIT_FUNC
 	QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP)
 {
 
-	int i;
+	int i = 0;
 
 	iMaxModules = iMaxModulesIP;
 	cErrorOP[0] = 0;
@@ -68,6 +68,21 @@ PyMODINIT_FUNC
 			// A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
 			// Sadly, there is no way to un-abort that.
 			Py_Initialize();
+
+      // Got code from: http://lyricsgrabber2.googlecode.com/svn-history/r38/trunk/foo_lyricsgrabber2/foo_lyricsgrabber2/py_site.cpp 
+      // More info here: https://fedoraproject.org/wiki/Features/PythonEncodingUsesSystemLocale
+	    if (PyUnicode_SetDefaultEncoding("utf-8") != 0)
+	    {
+		    PyErr_Clear();
+	    }
+
+      //sys.setdefaultencoding("utf-8")
+
+
+
+      //Return value: Borrowed reference.
+      //Return the object name from the sys module or NULL if it does not exist, without setting an exception.
+
 
 		}
 		CATCH
@@ -233,6 +248,14 @@ PyMODINIT_FUNC
 			fprintf(stdout, "\n");
 			if (pStrong != 0) Py_DECREF(pStrong);
       #endif
+
+//PyObject* PyUnicode_AsEncodedString(PyObject *unicode, const char *encoding, const char *errors)
+//PyObject* PyUnicode_AsUTF8String(PyObject *unicode)
+  // PyString_AsStringAndSize: If string is a Unicode object, this function computes the default encoding of string and operates on that.
+
+      //PyString_AsStringAndSize(PyObject *obj, char **buffer, Py_ssize_t *length) 
+
+
 			Py_DECREF(pRet);
 		}
 		Py_DECREF(oLocalDict);

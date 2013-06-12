@@ -264,7 +264,7 @@ PyMODINIT_FUNC
       fprintf(stdout, "pOutOP: \"%s\"\n", pOutOP);
       #endif
 
-      iRetData = PyString_AsStringAndSize(pPyUnicodeDataRet, &pOutOP, &iPyDataLength);
+      iRetData = PyString_AsStringAndSize(pPyUnicodeDataRet, &pOutOP, &iPyDataLength); // Returns int
 
       if (iRetData != 0)
       {

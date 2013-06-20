@@ -21,7 +21,6 @@
 #define ETRY } }while(0)
 #define THROW longjmp(ex_buf__, 1)
 
-//static void *oPyObject = 0;
 static void** pModules = 0;
 static int iMaxModules = 0;
 static PyObject* oMainModule = 0;

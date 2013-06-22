@@ -245,7 +245,7 @@ void
     #if QXPYDEBUG
     fprintf(stdout, "Run py object main module: \"%p\"\n", oMainModule);
     #endif
-    oLocalDict = PyDict_New();
+    oLocalDict = PyDict_Copy(oGlobalDict);
 
     pPyUnicodeDataIP = PyUnicode_FromString(cDataIP);
     pPyUnicodeDataOP = PyUnicode_FromString(*cDataOP);
@@ -262,7 +262,7 @@ void
     Py_DECREF(pPyUnicodeDataIP);
     Py_DECREF(pPyUnicodeDataOP);
 
-    pRet = PyEval_EvalCode((PyCodeObject*)pModules[iModuleIP], oGlobalDict, oLocalDict);
+    pRet = PyEval_EvalCode((PyCodeObject*)pModules[iModuleIP], oLocalDict /*global*/, oLocalDict /*local*/); // We pass the same dict as the globals() and the locals() reference, so code with imports and class definitions will execute similar to when running a file object.
 
     pPyUnicodeDataRet = PyDict_GetItemString(oLocalDict, "cDataOP");
     

@@ -266,7 +266,7 @@ void
 
     pPyUnicodeDataRet = PyDict_GetItemString(oLocalDict, "cDataOP");
     
-    #if QXPYDEBUG
+    #if QXPYDEBUG 
     fprintf(stdout, "pPyUnicodeDataOP after eval: \"%p\"\n", pPyUnicodeDataOP);
     fprintf(stdout, "pPyUnicodeDataRet after getitem: \"%p\"\n", pPyUnicodeDataRet);
     fprintf(stdout, "pPyUnicodeDataRet->ob_refcnt after getitem: \"%zd\"\n", pPyUnicodeDataRet->ob_refcnt);

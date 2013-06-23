@@ -46,10 +46,12 @@ static PyObject* oLastUnbuffered = 0;
 static char* pNullString = "";
 
 PyMODINIT_FUNC
-  QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP)
+  QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
 {
 
   int i = 0;
+
+  *iErrorLenOP = 0;
 
   iMaxModules = iMaxModulesIP;
   cErrorOP[0] = 0;
@@ -66,6 +68,7 @@ PyMODINIT_FUNC
   {
     char* cErr = "ERROR: Out of memory\n";
     strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+    *iErrorLenOP = strlen(cErrorOP);
   }
   else
   {
@@ -98,6 +101,7 @@ PyMODINIT_FUNC
     {
       char* cErr = "ERROR: Python initialize interpreter failed.\n";
       strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1)) ;
+      *iErrorLenOP = strlen(cErrorOP);
     }
     ETRY;
 
@@ -159,7 +163,7 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
 
 
 PyMODINIT_FUNC
-  QxPy_SetCompiledPyCode(int iPyObjectIP, char *cPyIdIP, char *cPyCodeIP, char *cErrorOP)
+  QxPy_SetCompiledPyCode(int iPyObjectIP, char *cPyIdIP, char *cPyCodeIP, char *cErrorOP, long long *iErrorLenOP)
 {  
   void *oPyObject = 0;
 
@@ -167,6 +171,7 @@ PyMODINIT_FUNC
   cErrorOP[1] = 0; // For Utf-8 data
   cErrorOP[2] = 0;
   cErrorOP[3] = 0; // For Utf-16 data
+  *iErrorLenOP = 0;
 
   oPyObject = (PyCodeObject*)Py_CompileString(cPyCodeIP, cPyIdIP, Py_file_input);
   if (oPyObject == 0)
@@ -178,6 +183,7 @@ PyMODINIT_FUNC
     cErr = ":\t";
     strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
     QxPyH_TransferPyErrorToString(cErrorOP);
+    *iErrorLenOP = strlen(cErrorOP);
   }
   else
   {
@@ -275,7 +281,7 @@ void
 
     if (pRet == 0)
     {
-      char* cErr = "Runtime error, invalid python code.\t";
+      char* cErr = "Runtime error in python code.\t";
       strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
       cErr = ":\t";
       strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
@@ -349,15 +355,17 @@ void
 
 
 PyMODINIT_FUNC
-  QxPy_RunCompiledPyCode(int iModuleIP, char *cDataIP, char *cDataOP, long long iDataOpLengthIP, char *cErrorOP)
+  QxPy_RunCompiledPyCode(int iModuleIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAOP_BUFFERED, &cDataOP, iDataOpLengthIP, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAOP_BUFFERED, &cDataOP, iDataOpMaxLengthIP, cErrorOP);
+  *iDataLenOP = strlen(cDataOP);
+  *iErrorLenOP = strlen(cErrorOP);
 } // QxPy_RunCompiledPyCode
 
 
 // Note: The only way to return an uninitialized memptr in OpenEdge ABL is by a return parameter.
 PyMODINIT_PCHAR
-  QxPy_RunCompiledPyCodeUnbuffered(int iModuleIP, char *cDataIP, char *cErrorOP)
+  QxPy_RunCompiledPyCodeUnbuffered(int iModuleIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   char *cDataOP;
   // Essentially the same as QxPy_RunCompiledPyCode, but instead of a deep copy to cDataOP, a pointer to 
@@ -365,6 +373,8 @@ PyMODINIT_PCHAR
   // This buffer should not be modified in any way.
   // The python object (and the underlying string buffer) are cleaned up at the very next call, or at system exit.
   RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAOP_UNBUFFERED, &cDataOP, 0, cErrorOP);
+  *iDataLenOP = strlen(cDataOP);
+  *iErrorLenOP = strlen(cErrorOP);
   return cDataOP;
 } // QxPy_RunCompiledPyCodeUnbuffered
 

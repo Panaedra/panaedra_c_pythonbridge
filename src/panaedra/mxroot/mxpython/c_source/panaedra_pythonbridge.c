@@ -190,8 +190,11 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
     temp = PyObject_Str(exc_typ); 
     if (temp != NULL) 
     { 
-      cErr = "BOEBOE\t"; 
-      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      if (strlen(cErrorOP) > 0)
+      {
+        cErr = "\t"; 
+        strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      }
       cErr = PyString_AsString(temp); 
       strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
       Py_DECREF(temp); 

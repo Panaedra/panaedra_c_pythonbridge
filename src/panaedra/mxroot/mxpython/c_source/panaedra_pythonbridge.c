@@ -114,8 +114,8 @@ PyMODINIT_FUNC
 
 } // QxPy_InitializeInterpreter
 
-
-void QxPyH_TransferPyErrorToString(char *cErrorOP)
+#if false
+void QxPyH_TransferPyErrorToStringOld(char *cErrorOP)
 {
   // Transfer the python error to a string (concat), and reset the python error status
 
@@ -164,6 +164,103 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
     Py_DECREF(oPyTraceback);
   }
 
+} // QxPyH_TransferPyErrorToStringOld
+#endif
+
+void QxPyH_TransferPyErrorToString(char *cErrorOP)
+{
+  // Based on: http://www.gossamer-threads.com/lists/python/python/150924 (but fixed some ref counter errors and other stuff)
+
+  PyObject *pName, *pModule, *pDict, *pFunc; 
+  PyObject *pArgs, *pValue; 
+  PyObject *err = PyErr_Occurred(); 
+  char *cErr;
+  char tb_string[2048]; 
+  if(err) 
+  { 
+    PyObject *temp, *exc_typ, *exc_val, *exc_tb; 
+
+    PyErr_Fetch(&exc_typ,&exc_val,&exc_tb); 
+    PyErr_NormalizeException(&exc_typ,&exc_val,&exc_tb); 
+
+    pName = PyString_FromString("traceback"); 
+    pModule = PyImport_Import(pName); 
+    Py_DECREF(pName); 
+
+    temp = PyObject_Str(exc_typ); 
+    if (temp != NULL) 
+    { 
+      cErr = "BOEBOE\t"; 
+      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      cErr = PyString_AsString(temp); 
+      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      Py_DECREF(temp); 
+    } 
+    temp = PyObject_Str(exc_val); 
+    if (temp != NULL){ 
+      cErr = "\t"; 
+      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      cErr = PyString_AsString(temp);
+      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+      Py_DECREF(temp); 
+    } 
+
+    if (exc_tb != NULL && pModule != NULL ) 
+    { 
+      pDict = PyModule_GetDict(pModule); 
+      if (pDict)
+      {
+        pFunc = PyDict_GetItemString(pDict, "format_tb"); 
+        if (pFunc && PyCallable_Check(pFunc)) 
+        { 
+          pArgs = PyTuple_New(1); 
+          PyTuple_SetItem(pArgs, 0, exc_tb); 
+          pValue = PyObject_CallObject(pFunc, pArgs); 
+          if (pValue != NULL) 
+          { 
+            int len = PyList_Size(pValue); 
+            if (len > 0) { 
+              PyObject *t,*tt; 
+              int i; 
+              char *buffer; 
+              for (i = 0; i < len; 
+                i++) { 
+                  tt = 
+                    PyList_GetItem(pValue,i); // Returns borrowed reference
+                  t = 
+                    Py_BuildValue("(O)",tt); 
+                  if (t)
+                  {
+                    if (PyArg_ParseTuple(t,"s",&buffer)){ 
+                      strcpy(tb_string,buffer); 
+                      PyMem_Free(buffer);
+                      cErr = "\t"; 
+                      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+                      cErr = tb_string;
+                      strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
+                    }
+                    Py_DECREF(t); 
+                  }
+              } 
+            } 
+            Py_DECREF(pValue); 
+          } 
+          Py_DECREF(pArgs); 
+        }
+        if (pFunc) Py_DECREF(pFunc);
+        // No Py_DECREF of pDict; borrowed reference
+      }
+    } 
+    Py_DECREF(pModule); 
+
+    #if false
+    GUIDisplay("Error"+err_str); 
+    PyErr_Restore(exc_typ, exc_val, exc_tb); 
+    PyErr_Print(); 
+    #endif
+
+    return; 
+  } 
 } // QxPyH_TransferPyErrorToString
 
 
@@ -504,6 +601,5 @@ PyMODINIT_FUNC
   Py_Finalize();
 
 } // QxPy_FinalizeInterpreter
-
 
 // EOF

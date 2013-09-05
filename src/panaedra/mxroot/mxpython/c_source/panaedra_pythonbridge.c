@@ -43,6 +43,20 @@
 #define DATAOP_BUFFERED_BARRAY 3
 #define DATAOP_UNBUFFERED_BARRAY 4
 
+
+#if defined(MS_WIN64) || defined(MS_WINDOWS)
+#include <windows.h>
+#include <stdio.h>
+#include <wincon.h>
+#include <winerror.h>
+#include <conio.h>
+#else
+// AIX: See /usr/include/sys/stat.h , for mkfifo
+#include <sys/stat.h>
+#include <stdio.h>
+#include <unistd.h>
+#endif
+
 static void** pModules = 0;
 static int iMaxModules = 0;
 static PyObject* oMainModule = 0;
@@ -598,11 +612,72 @@ PyMODINIT_FUNC
   }
 
   // Note: Py_DECREF(oMainModule) gave a Mem Violation in OE10.2B batch session. 
-  //       We don't create it ourselves, so it's probably not meant to be decreased anyway. 
+  //       We don't create it ourselves, so it's probably not meant to be decreased 
+  //       anyway (meaning: borrowed reference). 
   //       Plus we only need one instance of the main module.
 
   Py_Finalize();
 
 } // QxPy_FinalizeInterpreter
+
+PyMODINIT_FUNC
+  QxPy_MkFifo(char *cPathIP, int *iErrorOP)
+{ 
+
+#  if defined(MS_WIN64) || defined(MS_WINDOWS)
+  // wouldhave
+  // This codeblock is not tested/finished yet, just a headstart 
+  // for when we will implement this on windows
+  // See: K:\progress\DLC.11.0A.DOC\OpenEdge_Doc\openedge\dvpin\dvpin.pdf
+  HANDLE hPipe;
+  *iErrorOP = 0;
+  hPipe = CreateNamedPipe(
+    "\\\\.\\pipe\\custpipe",
+    PIPE_ACCESS_DUPLEX,
+    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+    1,
+    0,
+    0,
+    NMPWAIT_USE_DEFAULT_WAIT,
+    NULL);
+  if (hPipe == INVALID_HANDLE_VALUE)
+  {
+    *iErrorOP = GetLastError();
+    printf("Error creating pipe, %ld\n", *iErrorOP);
+  }
+#  else
+  *iErrorOP = 0;
+  *iErrorOP = mkfifo(cPathIP, S_IFIFO | 0666 );
+#  endif
+
+} // QxPy_MkFifo
+
+PyMODINIT_FUNC
+  QxPy_RmFifo(char *cPathIP, int *iErrorOP)
+{ 
+  *iErrorOP = 0;
+
+# if defined(MS_WIN64) || defined(MS_WINDOWS)
+  // wouldhave (see above); CloseHandle(hPipe);
+# else
+  *iErrorOP = remove(cPathIP);
+# endif
+
+} // QxPy_RmFifo
+
+PyMODINIT_FUNC
+  QxPy_UnlinkFifo(char *cPathIP, int *iErrorOP) 
+{ 
+  *iErrorOP = 0;
+
+# if defined(MS_WIN64) || defined(MS_WINDOWS)
+# else
+  // Like QxPy_RmFifo, but unlinks the fifo from the parent dir even when in use. 
+  // Caution, can cause FAT strangeness when used incorrectly. Don't ever use 
+  // on non-empty dirs.
+  *iErrorOP = unlink(cPathIP);
+# endif
+
+} // QxPy_UnlinkFifo
 
 // EOF

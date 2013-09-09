@@ -63,6 +63,8 @@ static PyObject* oMainModule = 0;
 static PyObject* oGlobalDict = 0; 
 static PyObject* oLastUnbuffered = 0; 
 static char* pNullString = "";
+static int iGilState = 0;
+static PyThreadState *oSavedThreadState = 0; 
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -94,6 +96,8 @@ PyMODINIT_FUNC
     TRY
     {
 
+      char* argv[1];
+
       for (i = 0 ; i < iMaxModulesIP ; i++)
       {
         pModules[i] = 0;
@@ -107,6 +111,13 @@ PyMODINIT_FUNC
       // A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
       // Sadly, there is no way to un-abort that.
       Py_Initialize();
+
+      argv[0] = cPyExePathIP;
+      PySys_SetArgvEx(1, argv, 0);
+
+      #if QXPYDEBUG
+      fprintf(stdout, "PySys_SetArgvEx is now: \"%s\"\n", argv[0]);
+      #endif
 
       // Got code from: http://lyricsgrabber2.googlecode.com/svn-history/r38/trunk/foo_lyricsgrabber2/foo_lyricsgrabber2/py_site.cpp 
       // More info here: https://fedoraproject.org/wiki/Features/PythonEncodingUsesSystemLocale
@@ -336,6 +347,12 @@ void
     cDataOP[3] = 0; // For Utf-16 data
   }
 
+  if (iGilState == 1)
+  {
+    iGilState = 0;
+    PyEval_RestoreThread(oSavedThreadState);
+  }
+
   if (oLastUnbuffered != 0)
   {
     #if QXPYDEBUG
@@ -492,6 +509,12 @@ void
 
   }
 
+  if (iGilState == 0)
+  {
+    iGilState = 1;
+    oSavedThreadState = PyEval_SaveThread();
+  }
+
 } // RunCompiledPyCodeImplement
 
 
@@ -617,6 +640,7 @@ PyMODINIT_FUNC
   //       Plus we only need one instance of the main module.
 
   Py_Finalize();
+  iGilState = 0;
 
 } // QxPy_FinalizeInterpreter
 

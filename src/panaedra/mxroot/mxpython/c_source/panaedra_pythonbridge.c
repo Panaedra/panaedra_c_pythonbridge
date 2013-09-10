@@ -513,8 +513,11 @@ void
   {
     iGilState = 1;
     oSavedThreadState = PyEval_SaveThread();
+    #if QXPYDEBUG
+    fprintf(stdout, "oSavedThreadState: \"%p\"\n", &oSavedThreadState);
+    #endif
   }
-
+  
 } // RunCompiledPyCodeImplement
 
 

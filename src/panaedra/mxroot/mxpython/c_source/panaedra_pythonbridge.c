@@ -64,7 +64,10 @@ static PyObject* oGlobalDict = 0;
 static PyObject* oLastUnbuffered = 0; 
 static char* pNullString = "";
 static int iGilState = 0;
-static PyThreadState *oSavedThreadState = 0; 
+//static PyThreadState *oSavedThreadState = 0; 
+//static PyThreadState *mainThreadState = 0;
+//static PyGILState_STATE gstate;
+
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -111,6 +114,9 @@ PyMODINIT_FUNC
       // A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
       // Sadly, there is no way to un-abort that.
       Py_Initialize();
+
+      // Initialize thread support
+      PyEval_InitThreads();
 
       argv[0] = cPyExePathIP;
       PySys_SetArgvEx(1, argv, 0);
@@ -347,10 +353,13 @@ void
     cDataOP[3] = 0; // For Utf-16 data
   }
 
+  //gstate = PyGILState_Ensure();
   if (iGilState == 1)
   {
     iGilState = 0;
-    PyEval_RestoreThread(oSavedThreadState);
+  //  PyEval_RestoreThread(oSavedThreadState);
+    // get the global lock
+    PyEval_AcquireLock();
   }
 
   if (oLastUnbuffered != 0)
@@ -512,11 +521,17 @@ void
   if (iGilState == 0)
   {
     iGilState = 1;
-    oSavedThreadState = PyEval_SaveThread();
+    // oSavedThreadState = PyEval_SaveThread();
+    //mainThreadState = PyThreadState_Get();
+    // release the lock
+    PyEval_ReleaseLock();
+
     #if QXPYDEBUG
     fprintf(stdout, "oSavedThreadState: \"%p\"\n", &oSavedThreadState);
     #endif
+    /* Release the thread. No Python API allowed beyond this point. */
   }
+  //PyGILState_Release(gstate);
   
 } // RunCompiledPyCodeImplement
 
@@ -642,6 +657,8 @@ PyMODINIT_FUNC
   //       anyway (meaning: borrowed reference). 
   //       Plus we only need one instance of the main module.
 
+  // shut down the interpreter
+  PyEval_AcquireLock();
   Py_Finalize();
   iGilState = 0;
 

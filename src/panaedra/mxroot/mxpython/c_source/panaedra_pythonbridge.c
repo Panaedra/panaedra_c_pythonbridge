@@ -64,10 +64,6 @@ static PyObject* oGlobalDict = 0;
 static PyObject* oLastUnbuffered = 0; 
 static char* pNullString = "";
 static int iGilState = 0;
-//static PyThreadState *oSavedThreadState = 0; 
-//static PyThreadState *mainThreadState = 0;
-//static PyGILState_STATE gstate;
-
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -353,12 +349,10 @@ void
     cDataOP[3] = 0; // For Utf-16 data
   }
 
-  //gstate = PyGILState_Ensure();
   if (iGilState == 1)
   {
     iGilState = 0;
-  //  PyEval_RestoreThread(oSavedThreadState);
-    // get the global lock
+    // get the GIL
     PyEval_AcquireLock();
   }
 
@@ -462,6 +456,11 @@ void
         // If the API output parameter is requested as bytearray, treat it as such
         pOutOP = PyByteArray_AS_STRING(pPyObjDataRet);
         *iDataLenOP = PyByteArray_GET_SIZE(pPyObjDataRet);
+        // Suppress (one line) possible loss of data warning.
+        // Is safe here, because in a 32 bit process only 32 bit memory
+        // pointers are passed to the .dll/.so. So even when stored in an int64, limit 
+        // of int32 is not exceeded (otherwise it's garbage / faulty code anyway).
+        #pragma warning(suppress: 4244) 
         iPyDataLength = *iDataLenOP;
         iRetData = 0;
       }
@@ -521,17 +520,10 @@ void
   if (iGilState == 0)
   {
     iGilState = 1;
-    // oSavedThreadState = PyEval_SaveThread();
-    //mainThreadState = PyThreadState_Get();
-    // release the lock
+    // Release the GIL (other python threads can do their work)
     PyEval_ReleaseLock();
-
-    #if QXPYDEBUG
-    fprintf(stdout, "oSavedThreadState: \"%p\"\n", &oSavedThreadState);
-    #endif
-    /* Release the thread. No Python API allowed beyond this point. */
+    /* Main thread is now released. No Python API allowed beyond this point. */
   }
-  //PyGILState_Release(gstate);
   
 } // RunCompiledPyCodeImplement
 
@@ -623,7 +615,15 @@ PyMODINIT_FUNC
 {
 
   int i = 0;
-
+  
+  // Since we initialized thread support, we have to acquire the GIL before 
+  // calling Py_Finalize(), and before we call any Python API whatsoever.
+  if (iGilState == 1)
+  {
+    iGilState = 0;
+    // get the GIL
+    PyEval_AcquireLock();
+  }
   // Free malloc of pModules void pointer array
   #if QXPYDEBUG
   fprintf(stdout, "Freeing pModules: \"%p\" \"%p\"\n", pModules, pModules[0]);
@@ -657,8 +657,7 @@ PyMODINIT_FUNC
   //       anyway (meaning: borrowed reference). 
   //       Plus we only need one instance of the main module.
 
-  // shut down the interpreter
-  PyEval_AcquireLock();
+  // Shut down the interpreter
   Py_Finalize();
   iGilState = 0;
 

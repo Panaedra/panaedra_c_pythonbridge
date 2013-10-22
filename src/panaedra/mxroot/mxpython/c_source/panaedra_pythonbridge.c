@@ -64,6 +64,7 @@ static PyObject* oGlobalDict = 0;
 static PyObject* oLastUnbuffered = 0; 
 static char* pNullString = "";
 static int iGilState = 0;
+static PyThreadState *oSavedThreadState = 0; 
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -352,8 +353,8 @@ void
   if (iGilState == 1)
   {
     iGilState = 0;
-    // get the GIL
-    PyEval_AcquireLock();
+    // Get the GIL (PyEval_AcquireLock() is called) and restore the previous thread state.
+    PyEval_RestoreThread(oSavedThreadState);
   }
 
   if (oLastUnbuffered != 0)
@@ -460,8 +461,13 @@ void
         // Is safe here, because in a 32 bit process only 32 bit memory
         // pointers are passed to the .dll/.so. So even when stored in an int64, limit 
         // of int32 is not exceeded (otherwise it's garbage / faulty code anyway).
-        #pragma warning(suppress: 4244) 
+        #if defined(MS_WIN64) || defined(MS_WINDOWS)
+        #pragma warning(disable: 4244)  
+        #endif
         iPyDataLength = *iDataLenOP;
+        #if defined(MS_WIN64) || defined(MS_WINDOWS)
+        #pragma warning(default: 4244)  
+        #endif
         iRetData = 0;
       }
       else
@@ -520,8 +526,8 @@ void
   if (iGilState == 0)
   {
     iGilState = 1;
-    // Release the GIL (other python threads can do their work)
-    PyEval_ReleaseLock();
+    // Release the GIL (PyEval_ReleaseLock is called; other python threads can do their work) and save the state of this thread
+    oSavedThreadState = PyEval_SaveThread();
     /* Main thread is now released. No Python API allowed beyond this point. */
   }
   
@@ -621,9 +627,10 @@ PyMODINIT_FUNC
   if (iGilState == 1)
   {
     iGilState = 0;
-    // get the GIL
-    PyEval_AcquireLock();
+    // Get the GIL (PyEval_AcquireLock() is called) and restore the previous thread state.
+    PyEval_RestoreThread(oSavedThreadState);
   }
+
   // Free malloc of pModules void pointer array
   #if QXPYDEBUG
   fprintf(stdout, "Freeing pModules: \"%p\" \"%p\"\n", pModules, pModules[0]);
@@ -659,7 +666,6 @@ PyMODINIT_FUNC
 
   // Shut down the interpreter
   Py_Finalize();
-  iGilState = 0;
 
 } // QxPy_FinalizeInterpreter
 

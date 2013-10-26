@@ -64,6 +64,7 @@ static PyObject* oGlobalDict = 0;
 static PyObject* oLastUnbuffered = 0; 
 static char* pNullString = "";
 static int iGilState = 0;
+static PyThreadState *oSavedThreadState = 0; 
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -298,18 +299,9 @@ void GilAcquire()
   if (iGilState == 1)
   {
     iGilState = 0;
-    // Get the GIL.
-    // Note: an attempt was made with saving thread state, like the standard python macro Py_BEGIN_ALLOW_THREADS
-    // does. This caused crashes. Probably the macro is intended to release the GIL before calling C
-    // stuff and after that getting the GIL again. From a shared object/dll point of view, it's the other
-    // way around (C is running all the time, and the python main thread should only be running during part of the DLL method call).
-    // The crash happened when python-compiling 1 piece of python code, running it, releasing the compiled code, and repeat these three steps.
-    // OE Core dump.
-    // The Python C Api functions that were called: PyEval_RestoreThread and PyEval_SaveThread. A static PyThreadState pointer was used to store the
-    // thread state of the (main) thread.
-    PyEval_AcquireLock();
+    // Get the GIL (PyEval_AcquireLock() is called) and restore the previous thread state.
+    PyEval_RestoreThread(oSavedThreadState); 
   }
-
 }
 
 void GilRelease()
@@ -317,8 +309,8 @@ void GilRelease()
   if (iGilState == 0)
   {
     iGilState = 1;
-    // Release the GIL (other python threads can do their work)
-    PyEval_ReleaseLock();
+    // Release the GIL (PyEval_ReleaseLock is called; other python threads can do their work) and save the state of this thread
+    oSavedThreadState = PyEval_SaveThread();
     /* Main thread is now released. No Python API allowed beyond this point. */
   }
 }

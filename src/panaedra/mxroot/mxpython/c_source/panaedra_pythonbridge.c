@@ -1,3 +1,5 @@
+#define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 #include <setjmp.h>
 
@@ -66,6 +68,9 @@ static char* pNullString = "";
 static int iGilState = 0;
 static PyThreadState *oSavedThreadState = 0; 
 
+void initxyzzy(void); /* Forward */
+void initiocodec(void); /* Forward */
+
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
 {
@@ -114,6 +119,10 @@ PyMODINIT_FUNC
 
       // Initialize thread support
       PyEval_InitThreads();
+
+      /* Add static modules */
+      initxyzzy();
+      initiocodec();
 
       argv[0] = cPyExePathIP;
       PySys_SetArgvEx(1, argv, 0);
@@ -740,5 +749,68 @@ PyMODINIT_FUNC
 # endif
 
 } // QxPy_UnlinkFifo
+
+static PyObject *
+xyzzy_foo(PyObject *self, PyObject* args)
+{
+    return PyInt_FromLong(42L);
+}
+
+static PyMethodDef xyzzy_methods[] = {
+    {"foo",             xyzzy_foo,      METH_NOARGS,
+     "Return the meaning of everything."},
+    {NULL,              NULL}           /* sentinel */
+};
+
+void
+initxyzzy(void)
+{
+    PyImport_AddModule("xyzzy");
+    Py_InitModule3("xyzzy", xyzzy_methods,"Thanks for all the PyFish!");
+}
+
+static char cDataOut[100];
+static Py_ssize_t iDataOutLen = 0;
+static PyObject *oRet = 0;
+
+static PyObject *
+iocodec_exp2pack(PyObject *self, PyObject* args)
+{
+  const char *cDataIn = 0;
+  Py_ssize_t iDataInLen = 0;
+  //char *cDataOut = 0;
+
+  //cDataOut = (char*)malloc(sizeof(char) * iDataInLen);
+
+  if (!PyArg_ParseTuple(args, "s#", &cDataIn, &iDataInLen))
+          return NULL;
+
+  iDataOutLen = 11;
+  strncpy(cDataOut,cDataIn,11);
+  
+  //fprintf(stdout, "cDataOut is now: \"%s\"\n", cDataOut);
+
+  oRet = Py_BuildValue("s#", cDataOut, iDataOutLen);
+
+  //free(cDataOut);
+  //cDataOut = 0;
+  //return Py_BuildValue("s#", "hello", 4);
+  return oRet;
+}
+
+
+static PyMethodDef iocodec_methods[] = {
+    {"exp2pack", iocodec_exp2pack, METH_VARARGS,
+     "Encode ABL export format as serialization format."},
+    {NULL, NULL} /* sentinel */
+};
+
+
+void
+initiocodec(void)
+{
+    PyImport_AddModule("iocodec");
+    Py_InitModule3("iocodec", iocodec_methods,"Encode/decode data for the Flux layer");
+}
 
 // EOF

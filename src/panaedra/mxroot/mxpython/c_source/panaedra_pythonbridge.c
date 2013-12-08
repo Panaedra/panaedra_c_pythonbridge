@@ -68,8 +68,9 @@ static char* pNullString = "";
 static int iGilState = 0;
 static PyThreadState *oSavedThreadState = 0; 
 
-void initxyzzy(void); /* Forward */
-void initiocodec(void); /* Forward */
+#if QXPYDEBUG
+void initioretexample(void); /* Forward */
+#endif
 
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
@@ -121,8 +122,9 @@ PyMODINIT_FUNC
       PyEval_InitThreads();
 
       /* Add static modules */
-      initxyzzy();
-      initiocodec();
+      #if QXPYDEBUG
+      initioretexample();
+      #endif
 
       argv[0] = cPyExePathIP;
       PySys_SetArgvEx(1, argv, 0);
@@ -750,31 +752,14 @@ PyMODINIT_FUNC
 
 } // QxPy_UnlinkFifo
 
-static PyObject *
-xyzzy_foo(PyObject *self, PyObject* args)
-{
-    return PyInt_FromLong(42L);
-}
-
-static PyMethodDef xyzzy_methods[] = {
-    {"foo",             xyzzy_foo,      METH_NOARGS,
-     "Return the meaning of everything."},
-    {NULL,              NULL}           /* sentinel */
-};
-
-void
-initxyzzy(void)
-{
-    PyImport_AddModule("xyzzy");
-    Py_InitModule3("xyzzy", xyzzy_methods,"Thanks for all the PyFish!");
-}
+#if QXPYDEBUG // ioretexample: an example of a python module injected by the bridge. The needed 'iocodec' module is later developed in Cython, different project.
 
 static char cDataOut[100];
 static Py_ssize_t iDataOutLen = 0;
 static PyObject *oRet = 0;
 
 static PyObject *
-iocodec_exp2pack(PyObject *self, PyObject* args)
+ioretexample_exp2pack(PyObject *self, PyObject* args)
 {
   const char *cDataIn = 0;
   Py_ssize_t iDataInLen = 0;
@@ -799,18 +784,20 @@ iocodec_exp2pack(PyObject *self, PyObject* args)
 }
 
 
-static PyMethodDef iocodec_methods[] = {
-    {"exp2pack", iocodec_exp2pack, METH_VARARGS,
-     "Encode ABL export format as serialization format."},
+static PyMethodDef ioretexample_methods[] = {
+    {"exp2pack", ioretexample_exp2pack, METH_VARARGS,
+     "Encode example."},
     {NULL, NULL} /* sentinel */
 };
 
 
 void
-initiocodec(void)
+initioretexample(void)
 {
-    PyImport_AddModule("iocodec");
-    Py_InitModule3("iocodec", iocodec_methods,"Encode/decode data for the Flux layer");
+    PyImport_AddModule("ioretexample");
+    Py_InitModule3("ioretexample", ioretexample_methods,"Example of a module injected by the bridge.");
 }
+
+#endif // ioretexample
 
 // EOF

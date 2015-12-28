@@ -365,7 +365,7 @@ PyMODINIT_FUNC
 
 
 void
-  RunCompiledPyCodeImplement(int iModuleIP, char *cDataIP, int iDataIpModeIP, int iDataOpModeIP, char **cDataOP, long long *iDataLenOP, long long iDataOpMaxLengthIP, char *cErrorOP)
+  RunCompiledPyCodeImplement(int iModuleIP, long long iDataLenIP, char *cDataIP, int iDataIpModeIP, int iDataOpModeIP, char **cDataOP, long long *iDataLenOP, long long iDataOpMaxLengthIP, char *cErrorOP)
 {  
   cErrorOP[0] = 0;
   cErrorOP[1] = 0; // For Utf-8 data
@@ -424,13 +424,13 @@ void
     oLocalDict = PyDict_Copy(oGlobalDict);
 
     if (iDataIpModeIP == DATAIP_BUFFERED_BARRAY)
-      pPyObjDataIP = PyByteArray_FromStringAndSize(cDataIP, strlen(cDataIP));
+      pPyObjDataIP = PyByteArray_FromStringAndSize(cDataIP, (Py_ssize_t)iDataLenIP);
       // Note: a 'bytes' object, a python immutable type, would be preferable. 
       // 'PyBytes_FromStringAndSize' however, is (at least in python 2.7) simply a macro 
       // for 'PyString_FromStringAndSize'. See <bytesobject.h>.
       // Therefore we create a mutable 'bytearray' object, using 'PyByteArray_FromStringAndSize'
     else
-      pPyObjDataIP = PyUnicode_FromString(cDataIP);
+      pPyObjDataIP = PyUnicode_FromStringAndSize(cDataIP, (Py_ssize_t)iDataLenIP); 
 
     pPyObjDataOP = PyUnicode_FromString(*cDataOP);
 
@@ -559,36 +559,36 @@ void
 
 
 PyMODINIT_FUNC
-  QxPy_RunCompiledPyCode(int iModuleIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCode(int iModuleIP, long long iDataLenIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   long long iDataLenDummy = 0;
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_BUFFERED_UTF8, &cDataOP, &iDataLenDummy, iDataOpMaxLengthIP, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_BUFFERED_UTF8, &cDataOP, &iDataLenDummy, iDataOpMaxLengthIP, cErrorOP);
   *iDataLenOP = strlen(cDataOP);
   *iErrorLenOP = strlen(cErrorOP);
 } // QxPy_RunCompiledPyCode
 
 PyMODINIT_FUNC
-  QxPy_RunCompiledPyCodeB(int iModuleIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCodeB(int iModuleIP, long long iDataLenIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   // See QxPy_RunCompiledPyCode. output=byte-array alternative.
   long long iDataLenDummy = 0;
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_BUFFERED_BARRAY, &cDataOP, &iDataLenDummy, iDataOpMaxLengthIP, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_BUFFERED_BARRAY, &cDataOP, &iDataLenDummy, iDataOpMaxLengthIP, cErrorOP);
   *iDataLenOP = strlen(cDataOP);
   *iErrorLenOP = strlen(cErrorOP);
 } // QxPy_RunCompiledPyCodeB
 
 
 PyMODINIT_FUNC
-  QxPy_RunCompiledPyCodeBB(int iModuleIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCodeBB(int iModuleIP, long long iDataLenIP, char *cDataIP, char *cDataOP, long long iDataOpMaxLengthIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   // See QxPy_RunCompiledPyCode. input&output=byte-array alternative.
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_BUFFERED_BARRAY, &cDataOP, iDataLenOP, iDataOpMaxLengthIP, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_BUFFERED_BARRAY, &cDataOP, iDataLenOP, iDataOpMaxLengthIP, cErrorOP);
   *iErrorLenOP = strlen(cErrorOP);
 } // QxPy_RunCompiledPyCodeBB
 
 // Note: The only way to return an uninitialized memptr in OpenEdge ABL is by a return parameter.
 PyMODINIT_PCHAR
-  QxPy_RunCompiledPyCodeUnbuffered(int iModuleIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCodeUnbuffered(int iModuleIP, long long iDataLenIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   // Essentially the same as QxPy_RunCompiledPyCode, but instead of a deep copy to cDataOP, a pointer to 
   // the char buffer of the (kept-alive) python unicode object is returned.
@@ -596,30 +596,30 @@ PyMODINIT_PCHAR
   // The python object (and the underlying string buffer) are cleaned up at the very next call, or at system exit.
   char *cDataOP;
   long long iDataLenDummy = 0;
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_UNBUFFERED_UTF8, &cDataOP, &iDataLenDummy, 0, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_UTF8, DATAOP_UNBUFFERED_UTF8, &cDataOP, &iDataLenDummy, 0, cErrorOP);
   *iDataLenOP = strlen(cDataOP);
   *iErrorLenOP = strlen(cErrorOP);
   return cDataOP;
 } // QxPy_RunCompiledPyCodeUnbuffered
 
 PyMODINIT_PCHAR
-  QxPy_RunCompiledPyCodeUnbufferedB(int iModuleIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCodeUnbufferedB(int iModuleIP, long long iDataLenIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   // See: QxPy_RunCompiledPyCodeUnbuffered. output=byte-array alternative.
   char *cDataOP;
   long long iDataLenDummy = 0;
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_UNBUFFERED_UTF8, &cDataOP, &iDataLenDummy, 0, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_UNBUFFERED_UTF8, &cDataOP, &iDataLenDummy, 0, cErrorOP);
   *iDataLenOP = strlen(cDataOP);
   *iErrorLenOP = strlen(cErrorOP);
   return cDataOP;
 } // QxPy_RunCompiledPyCodeUnbufferedB
 
 PyMODINIT_PCHAR
-  QxPy_RunCompiledPyCodeUnbufferedBB(int iModuleIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
+  QxPy_RunCompiledPyCodeUnbufferedBB(int iModuleIP, long long iDataLenIP, char *cDataIP, long long *iDataLenOP, char *cErrorOP, long long *iErrorLenOP)
 {  
   // See: QxPy_RunCompiledPyCodeUnbuffered. input&output=byte-array alternative.
   char *cDataOP;
-  RunCompiledPyCodeImplement(iModuleIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_UNBUFFERED_BARRAY, &cDataOP, iDataLenOP, 0, cErrorOP);
+  RunCompiledPyCodeImplement(iModuleIP, iDataLenIP, cDataIP, DATAIP_BUFFERED_BARRAY, DATAOP_UNBUFFERED_BARRAY, &cDataOP, iDataLenOP, 0, cErrorOP);
   *iErrorLenOP = strlen(cErrorOP);
   return cDataOP;
 } // QxPy_RunCompiledPyCodeUnbufferedBB

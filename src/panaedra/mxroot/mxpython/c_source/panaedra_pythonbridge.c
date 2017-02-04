@@ -72,6 +72,21 @@ static PyThreadState *oSavedThreadState = 0;
 void initioretexample(void); /* Forward */
 #endif
 
+static void sighandler(int sig) {
+  if (sig == SIGHUP)
+  {
+    #if QXPYDEBUG
+    fprintf(stdout, "Finalizing python interpreter\n");
+    #endif
+    QxPy_FinalizeInterpreter();
+    pid_t pid=getpid();
+    #if QXPYDEBUG
+    fprintf(stdout, "Sending kill -s SIGINT to pid %d\n", pid);
+    #endif
+    kill(pid, SIGINT);
+  }
+}
+
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
 {
@@ -111,6 +126,9 @@ PyMODINIT_FUNC
 
       // This function should be called before Py_Initialize() is called for the first time, if at all
       Py_SetProgramName(cPyExePathIP);
+
+      // Subscribe SIGHUP, to terminate python
+      sigset(SIGHUP, &sighandler);
 
       // Initialize the Python interpreter
       // Note: exceptions can not be caught here. 

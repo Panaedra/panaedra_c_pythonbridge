@@ -75,6 +75,7 @@ void initioretexample(void); /* Forward */
 static void sighandler(int sig) {
   if (sig == SIGHUP)
   {
+    // FREF@60c6ae3bb: Subscribe to SIGHUP from Qx python bridge, event handler: shut down python interpreter and gracefully exit progress session
     #if QXPYDEBUG
     fprintf(stdout, "Finalizing python interpreter\n");
     #endif
@@ -83,6 +84,10 @@ static void sighandler(int sig) {
     #if QXPYDEBUG
     fprintf(stdout, "Sending kill -s SIGINT to pid %d\n", pid);
     #endif
+   // Notes on AIX 7.1 x64, with an OpenEdge 11.6.2 TTY client session [2017Q1 TW]:
+   // SIGEMT  gives:            "vv_flush:I/O error 5 on fd 1" and session still running
+   // SIGQUIT or SIGTERM gives: "vv_flush:I/O error 5 on fd 1" and "Save file named core for analysis" -> OEDB watchdog disconnecting dead user later on
+   // SIGINT  seems to work best. No core dump, no I/O error, OEDB watchdog disconnecting dead user later on
     kill(pid, SIGINT);
   }
 }

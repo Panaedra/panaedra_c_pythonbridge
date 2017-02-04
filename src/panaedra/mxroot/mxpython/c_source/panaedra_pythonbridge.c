@@ -116,7 +116,7 @@ PyMODINIT_FUNC
       // Note: exceptions can not be caught here. 
       // A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
       // Sadly, there is no way to un-abort that.
-      Py_Initialize();
+      Py_InitializeEx(0); // If initsigs is 0, it skips initialization registration of signal handlers
 
       // Initialize thread support
       PyEval_InitThreads();

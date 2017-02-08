@@ -72,26 +72,6 @@ static PyThreadState *oSavedThreadState = 0;
 void initioretexample(void); /* Forward */
 #endif
 
-static void sighandler(int sig) {
-  if (sig == SIGHUP)
-  {
-    // FREF@60c6ae3bb: Subscribe to SIGHUP from Qx python bridge, event handler: shut down python interpreter and gracefully exit progress session
-    #if QXPYDEBUG
-    fprintf(stdout, "Finalizing python interpreter\n");
-    #endif
-    QxPy_FinalizeInterpreter();
-    pid_t pid=getpid();
-    #if QXPYDEBUG
-    fprintf(stdout, "Sending kill -s SIGINT to pid %d\n", pid);
-    #endif
-   // Notes on AIX 7.1 x64, with an OpenEdge 11.6.2 TTY client session [2017Q1 TW]:
-   // SIGEMT  gives:            "vv_flush:I/O error 5 on fd 1" and session still running
-   // SIGQUIT or SIGTERM gives: "vv_flush:I/O error 5 on fd 1" and "Save file named core for analysis" -> OEDB watchdog disconnecting dead user later on
-   // SIGINT  seems to work best. No core dump, no I/O error, OEDB watchdog disconnecting dead user later on
-    kill(pid, SIGINT);
-  }
-}
-
 PyMODINIT_FUNC
   QxPy_InitializeInterpreter(char *cPyExePathIP, int iMaxModulesIP, char *cErrorOP, long long *iErrorLenOP)
 {
@@ -132,14 +112,13 @@ PyMODINIT_FUNC
       // This function should be called before Py_Initialize() is called for the first time, if at all
       Py_SetProgramName(cPyExePathIP);
 
-      // Subscribe SIGHUP, to terminate python
-      sigset(SIGHUP, &sighandler);
-
-      // Initialize the Python interpreter
+      // Initialize the Python interpreter via Py_Initialize or Py_InitializeEx.
       // Note: exceptions can not be caught here. 
       // A fatal error is induced by calling Py_FatalError, which bids farewell with an explanatory message and then calls abort().
       // Sadly, there is no way to un-abort that.
-      Py_InitializeEx(0); // If initsigs is 0, it skips initialization registration of signal handlers
+
+      // FREF@24cd1cb22: Prevent embedded python from subscribing to signal handlers
+      Py_InitializeEx(0); // If initsigs is 0, it skips initialization registration of signal handlers (which is a very dangerous thing to do, if the parent process has signal handlers)
 
       // Initialize thread support
       PyEval_InitThreads();

@@ -277,14 +277,8 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
                   {
                     if (PyArg_ParseTuple(t,"s",&buffer)){ 
                       strcpy(tb_string,buffer); 
-            #ifndef _WIN32
-            // Note: On Windows, PyMem_Free crashes prowin32, at least in QxPy_RunCompiledPyCodeUnbuffered. 
-            //       We have to revise error handling anyway. A process restart is needed after a Python exception
-            //       through the bridge for the moment, even without this PyMem_Free patch. So for now we skip
-            //       the freeing of memory of this error string buffer. It will be cleaned up at the end of the process,
-            //       by the OS.
-                      PyMem_Free(buffer);
-                      #endif
+                      // Note: Since mode "s" is used for PyArg_ParseTuple, do not call PyMem_Free. 
+                      //       See: https://docs.python.org/2.0/ext/parseTuple.html
                       cErr = "\t"; 
                       strncat(cErrorOP, cErr, strnlen(cErr,MAXERRORLEN - strlen(cErrorOP) - 1));
                       cErr = tb_string;

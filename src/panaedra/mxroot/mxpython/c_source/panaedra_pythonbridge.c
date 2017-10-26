@@ -634,15 +634,20 @@ PyMODINIT_FUNC
   fprintf(stdout, "Del py object number: \"%i\"\n", iPyObjectIP);
   #endif
 
-  GilAcquire();
-
-  if (iPyObjectIP <= iMaxModules && pModules[iPyObjectIP] != 0) 
+  if (pModules != 0) // If the Python interpreter is already shut down, this is a no-op.
   {
-    Py_DECREF(pModules[iPyObjectIP]);
-    pModules[iPyObjectIP] = 0;
-  }
 
-  GilRelease();
+	  GilAcquire();
+
+	  if (iPyObjectIP <= iMaxModules && pModules[iPyObjectIP] != 0)
+	  {
+		  Py_DECREF(pModules[iPyObjectIP]);
+		  pModules[iPyObjectIP] = 0;
+	  }
+
+	  GilRelease();
+	  
+  }
 
 } // QxPy_FreeCompiledPyCode
 

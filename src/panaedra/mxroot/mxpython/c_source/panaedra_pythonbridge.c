@@ -292,7 +292,7 @@ void QxPyH_TransferPyErrorToString(char *cErrorOP)
           } 
           Py_DECREF(pArgs); 
         }
-        if (pFunc) Py_DECREF(pFunc);
+        // No Py_DECREF of pFunc; borrowed reference (otherwise crash at Py_Finalize)
         // No Py_DECREF of pDict; borrowed reference
       }
     } 

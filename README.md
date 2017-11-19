@@ -1,5 +1,19 @@
 # Paneadra Python Bridge
 
+## Important Notice
+
+This repository has *not* yet been updated with the latest fixes for the Prague demo.
+
+Please be patient for a couple more days.
+
+E.T.A.: **Wednesday 22nd Nov 2017**.
+
+This repository will be *reset* at that time, due to changes in the private repository conversion and anonymization.
+
+Kind regards, Tijs Wickardt
+
+## This readme continued...
+
 The Paneadra Python Bridge enables you to embed the CPython interpreter into a runtime that supports dynamic loading of Unix _shared objects_ and/or Windows _DLLs_.
 
 It was written for embedding CPython into the Progress OpenEdge ABL runtime, to facilitate software integration with various third party projects.
